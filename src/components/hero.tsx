@@ -38,7 +38,7 @@ export function Hero() {
           transition={{ duration: 0.5, delay: 0.25 }}
         >
           Capital introductions and strategic advisory powered by real-world
-          expertise from an active Airline Pilot, Mechanical Engineer, MBA, and
+          expertise from an active Fighter Pilot, Airline Pilot, Mechanical Engineer, MBA, and
           Real Estate professional.
         </motion.p>
 
