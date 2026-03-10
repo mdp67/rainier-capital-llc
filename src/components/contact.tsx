@@ -1,25 +1,75 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { submitContact } from "@/app/actions/contact";
 
-const initialState: { success?: boolean; error?: string; message?: string } | null = null;
+type ContactStatus = "idle" | "loading" | "success" | "error";
 
 function ContactForm() {
-  const [state, formAction, isPending] = useActionState(
-    async (
-      _prev: typeof initialState,
-      formData: FormData
-    ): Promise<typeof initialState> => submitContact(formData),
-    initialState
-  );
+  const [status, setStatus] = useState<ContactStatus>("idle");
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const isPending = status === "loading";
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setStatus("loading");
+    setError(null);
+    setSuccessMessage(null);
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+
+    const payload = {
+      name: (formData.get("name") ?? "").toString(),
+      email: (formData.get("email") ?? "").toString(),
+      company: (formData.get("company") ?? "").toString(),
+      message: (formData.get("message") ?? "").toString(),
+    };
+
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        error?: string;
+        message?: string;
+      };
+
+      if (!res.ok || !data.success) {
+        setStatus("error");
+        setError(data.error || "Something went wrong while sending your message.");
+        return;
+      }
+
+      setStatus("success");
+      setSuccessMessage(
+        data.message || "Thank you. Your message has been sent."
+      );
+      form.reset();
+    } catch (err) {
+      console.error(err);
+      setStatus("error");
+      setError("Unable to send your message. Please try again.");
+    } finally {
+      if (status !== "success") {
+        setStatus("idle");
+      }
+    }
+  }
 
   return (
-    <form action={formAction} className="mx-auto max-w-lg space-y-6">
+    <form onSubmit={handleSubmit} className="mx-auto max-w-lg space-y-6">
       <div className="grid gap-2 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="name">Name *</Label>
@@ -67,14 +117,12 @@ function ContactForm() {
           className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
         />
       </div>
-      {state?.error && (
-        <p className="text-sm text-destructive">{state.error}</p>
-      )}
-      {state?.success && state?.message && (
-        <p className="text-sm text-white font-medium">{state.message}</p>
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      {successMessage && (
+        <p className="text-sm text-white font-medium">{successMessage}</p>
       )}
       <Button type="submit" variant="gold" size="lg" disabled={isPending}>
-        {isPending ? "Sending…" : "Send message"}
+        {isPending ? "Sending..." : "Send message"}
       </Button>
     </form>
   );
